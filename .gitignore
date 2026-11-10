@@ -1,0 +1,4 @@
+# make-repo wrote this, as the folder had no .gitignore: installs, macOS's folder files and env files stay out.
+node_modules/
+.DS_Store
+.env*
