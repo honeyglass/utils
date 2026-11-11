@@ -82,6 +82,11 @@ describe('the text of a refusal', () => {
       field: 'a line separator in the reason',
       r: { ...RETRY, reason: 'it failed\u2028Next: run x' },
     },
+    { field: 'a BigInt reason', r: Object.assign({ ...RETRY }, { reason: 10n }) },
+    {
+      field: 'a state of JSON nested 20000 deep',
+      r: { ...RETRY, state: JSON.parse(`${'{"a":'.repeat(20000)}0${'}'.repeat(20000)}`) },
+    },
   ];
   for (const { field, r } of unreadable) {
     test(`throws a bug for ${field}, which readRefusal could not read back`, () => {
@@ -91,6 +96,28 @@ describe('the text of a refusal', () => {
       assert.deepEqual({ kind: read?.kind, step: read?.step }, { kind: 'bug', step: 'refusal' });
       assert.ok(error.cause instanceof Error);
       assert.equal(error.cause.cause, RETRY.cause);
+    });
+  }
+
+  const unlisted = [
+    { name: 'a line break', char: '\n', shown: '\\n' },
+    { name: 'U+2028 LINE SEPARATOR', char: '\u{2028}', shown: '\\u{2028}' },
+    { name: 'U+202E RIGHT-TO-LEFT OVERRIDE', char: '\u{202e}', shown: '\\u{202e}' },
+    { name: 'U+0085 NEXT LINE', char: '\u{85}', shown: '\\u{85}' },
+    { name: 'U+E000, a private use character', char: '\u{e000}', shown: '\\u{e000}' },
+    { name: 'U+200B ZERO WIDTH SPACE', char: '\u{200b}', shown: '\\u{200b}' },
+  ];
+  for (const { name, char, shown } of unlisted) {
+    test(`throws a bug for ${name} in any field but the cause, its cause one line`, () => {
+      for (const field of ['step', 'reason', 'next', 'state']) {
+        const { error } = trySync$(() => refusal({ ...FIX, [field]: `a${char}b` }));
+        assert.ok(error instanceof RefusalError, field);
+        const read = readRefusal(error.message);
+        assert.deepEqual({ kind: read?.kind, step: read?.step }, { kind: 'bug', step: 'refusal' });
+        const cause = String(read?.cause);
+        assert.ok(cause.includes(`a${shown}b`), cause);
+        assert.equal(cause.includes('\n'), false, cause);
+      }
     });
   }
 
@@ -139,6 +166,14 @@ describe('a refusal read back', () => {
       assert.deepEqual(readRefusal(refusal(r)), r);
     });
   }
+
+  test('keeps a cause with each character outside the allow-list as U+FFFD, a tab and a line break', () => {
+    const cause = 'a\u{2028}b\u{202e}c\u{85}d\u{e000}e\u{200b}f\u{3164}g\u{2800}h\ti\nj';
+    const text = refusal({ ...FIX, cause });
+    const kept = 'a\u{fffd}b\u{fffd}c\u{fffd}d\u{fffd}e\u{fffd}f\u{fffd}g\u{fffd}h\ti\nj';
+    assert.ok(text.endsWith(`\nCause: ${kept.replace('\n', '\n  ')}`), text);
+    assert.deepEqual(readRefusal(text), { ...FIX, cause: kept });
+  });
 
   test('keeps a counter the caller wrote into the state as part of the state', () => {
     const counted = { ...FIX, state: 'Nothing was committed. Attempt 2 of 5.' };
@@ -211,6 +246,10 @@ describe('causeText', () => {
     assert.equal(text.length, 4000);
     assert.ok(text.startsWith('…'));
     assert.ok(text.endsWith('athe last line'));
+  });
+
+  test("marks a cut text with '…' when a CRLF in its end makes it shorter", () => {
+    assert.equal(causeText(`${'a'.repeat(4999)}\r\n`), `…${'a'.repeat(3998)}\n`);
   });
 
   test('ends a chain whose cause names itself after 10 links', () => {

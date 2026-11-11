@@ -16,7 +16,8 @@ declare const brand: unique symbol;
 export type RefusalText = string & { readonly [brand]: true };
 
 /**
- * A refusal; reason, next and state are one line each, so readRefusal reads each back whole.
+ * A refusal; every field but the cause holds only letters, marks, digits, punctuation, symbols
+ * and spaces, so readRefusal reads each back whole and no field hides a character.
  *
  * It has no attempt: a caller that counts its attempts writes them into state, such as
  * 'Attempt 2 of 5.'

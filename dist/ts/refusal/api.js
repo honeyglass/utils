@@ -22,18 +22,30 @@ const KINDS = ['fix', 'retry', 'ask', 'blocked', 'bug'];
 // Next line; \u2028 and \u2029 end a line as well. One-line classes also keep the match linear.
 const TEXT = /^Refused \((fix|retry|ask|blocked|bug)\) at ([^:\n\r\u2028\u2029]+): ([^\n\r\u2028\u2029]*)\.\nNext: ([^\n\r\u2028\u2029]*)\.(?:\n(?!Cause: )([^\n\r\u2028\u2029]*))?(?:\nCause: ([\s\S]*))?$/;
 // Each line of the cause is indented, so none of them starts like a line of the refusal.
-const CAUSE_BREAK = /[\n\u2028\u2029]/g;
+// '\n' is the only line break left: causeText has turned every other character outside its
+// allow-list, such as U+2028, into U+FFFD.
+const CAUSE_BREAK = /\n/g;
 const CAUSE_INDENT = '\n  ';
-// A control other than a tab or a line break, or an invisible format character such as a bidi
-// override or a tag character, can hide or reorder what a reader of the cause sees.
-const UNSAFE = /(?![\t\n])[\p{Cc}\p{Cf}]/gu;
+// A character of a cause that does not show as itself, such as a bidi override or a zero-width
+// space. It is every character outside an allow-list: letters, marks, digits, punctuation,
+// symbols, the space, the tab and the line break, so a control or a case nobody thought of is
+// unsafe. Two narrowings take out what the list lets pass but shows as nothing: Unicode's
+// Default_Ignorable code points (such as U+3164 HANGUL FILLER and the variation selectors) and
+// U+2800 BRAILLE PATTERN BLANK.
+const UNSAFE = /[^\p{L}\p{M}\p{N}\p{P}\p{S} \t\n]|[\p{DI}\u{2800}]/gu;
 const UNREAD = '[a cause that could not be read]';
-// A refusal with a field readRefusal does not read back whole, such as a step with a colon, is the caller's bug.
+// The allow-list of every field but the cause: letters, marks, digits, punctuation, symbols and
+// the space. A line break, a control or a bidi override is none of them, and nor is a case
+// nobody thought of.
+const FIELD = /^[\p{L}\p{M}\p{N}\p{P}\p{S} ]*$/u;
+const UNLISTED = /[^\p{L}\p{M}\p{N}\p{P}\p{S} ]/gu;
+// A refusal with a field outside the allow-list, or one readRefusal does not read back whole,
+// such as a step with a colon, is the caller's bug.
 // Its own fields are fixed, so the RefusalError it throws passes the check.
 const MALFORMED = {
     kind: 'bug',
     step: 'refusal',
-    reason: 'a field readRefusal does not read back whole, such as a step with a colon or a state of two lines',
+    reason: 'a field holds a character outside the allow-list or does not read back whole, such as a step with a colon or a state of two lines',
     next: 'tell the person; the code that made this refusal needs a fix',
 };
 /**
@@ -43,20 +55,23 @@ const MALFORMED = {
  *
  * @param r - the refusal
  * @returns its text: the kind, step and reason, the next step, the state, the cause indented
- * @throws a bug RefusalError for a field readRefusal does not read back whole, such as a step with a colon or a state of two lines
+ * @throws a bug RefusalError for a field outside the allow-list or one readRefusal does not read back whole, such as a step with a colon
  * @example return { deny: refusal({ kind: 'retry', step: 'git commit', reason: 'HEAD moved', next: 'call commit again' }) }
  */
 export const refusal = (r) => {
     const { kind, step, reason, next, state, cause } = r;
+    const fields = { kind, step, reason, next, state };
+    if (hasListedFields(fields) === false)
+        throw malformed(fields, cause);
     const lines = [`Refused (${kind}) at ${step}: ${reason}.`, `Next: ${next}.`];
     if (state !== undefined && state !== '')
         lines.push(state);
     if (cause !== undefined)
         lines.push(`Cause: ${causeText(cause).replace(CAUSE_BREAK, CAUSE_INDENT)}`);
     const text = lines.join('\n');
-    if (isReadBack(text, { kind, step, reason, next, state }))
+    if (isReadBack(text, fields))
         return text;
-    throw new RefusalError({ ...MALFORMED, cause: new Error(text, { cause }) });
+    throw malformed(fields, cause);
 };
 /**
  * The refusal a text of refusal() holds, such as the answer of a `$.tool.call`.
@@ -114,8 +129,12 @@ export class RefusalError extends Error {
 /**
  * A cause as text: each error of its chain as `Name: message`, capped with its end kept.
  *
- * It never throws: a link it cannot read, such as one whose getter throws, is a fixed fallback text.
- * A carriage return becomes a line break; controls and invisible format characters become U+FFFD.
+ * It never throws: a link it cannot read, such as one whose getter throws, is a fixed fallback text,
+ * and each link is cut to its end before the links are joined, so a chain of huge messages cannot
+ * make the join throw.
+ * A carriage return becomes a line break; every character but letters, marks, digits,
+ * punctuation, symbols, the space, the tab and the line break becomes U+FFFD, and so does one
+ * that shows as nothing, such as U+3164 HANGUL FILLER.
  *
  * @param cause - an error, a program's output, or any thrown value
  * @returns at most 4000 characters
@@ -127,12 +146,29 @@ export const causeText = (cause) => {
         chain.push(link);
     }
     const text = chain
-        .map(linkText)
+        // The cleanup below at most halves a link, such as '\r\n' to '\n'; a cut link keeps twice
+        // the cap and one, so it stays over the cap and the cut below marks it with '…'.
+        .map(link => linkText(link).slice(-2 * (CAUSE_LIMIT + 1)))
         .join('\nCaused by: ')
         .replace(/\r\n?/g, '\n')
         .replace(UNSAFE, '\ufffd');
     return text.length <= CAUSE_LIMIT ? text : `…${text.slice(text.length - CAUSE_LIMIT + 1)}`;
 };
+// A caller in JavaScript can pass any value, so a field that is no string fails before anything
+// reads it, and no toString of a caller's value runs.
+const hasListedFields = ({ kind, step, reason, next, state }) => [kind, step, reason, next, state ?? ''].every(field => typeof field === 'string' && FIELD.test(field));
+const malformed = (fields, cause) => new RefusalError({ ...MALFORMED, cause: new Error(fieldsText(fields), { cause }) });
+// The fields on one line with each character outside the allow-list escaped, so the bug does not
+// carry a forged line whole.
+const fieldsText = ({ step, reason, next, state }) => JSON.stringify({
+    step: shownField(step),
+    reason: shownField(reason),
+    next: shownField(next),
+    state: state === undefined ? undefined : shownField(state),
+}).replace(UNLISTED, char => `\\u{${(char.codePointAt(0) ?? 0).toString(16)}}`);
+// Only a string cut to the cap is shown, so JSON.stringify runs no toJSON, getter or proxy of a
+// caller's value, and the escape cannot grow a field past the string limit.
+const shownField = (field) => typeof field === 'string' ? field.slice(0, CAUSE_LIMIT) : `[${typeof field}]`;
 // TEXT alone passes a step with a colon, read back cut at the colon, so the fields are compared.
 const isReadBack = (text, r) => {
     const read = readRefusal(text);
