@@ -1,14 +1,27 @@
 {
-  "name": "utils",
+  "name": "@honeyglass/utils",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@12.9.0+sha512.8f64efa0b792986ca98ae568791bcd7722807e274c4f0c1d9853c62116495c584119db98762a2a5343b1684d361b9ae26fdd16d551666d7635346d3fae830ddd",
+  "exports": {
+    "./ts": {
+      "types": "./dist/ts/index.d.ts",
+      "default": "./dist/ts/index.js"
+    }
+  },
   "scripts": {
+    "build": "tsc6 -p .",
+    "typecheck": "tsc6 -p . --noEmit && tsc6 -p tests",
+    "test": "! git ls-files ':(glob)**/.gitattributes' | grep . || { echo 'remove the .gitattributes listed above: it changes the archive codeload.github.com serves' >&2; exit 1; }; out=$(mktemp -d \"${TMPDIR:-/tmp}/build.XXXXXX\") && tsc6 -p . --outDir \"$out\" && { diff -r dist/ts \"$out\"; s=$?; rm -r \"$out\"; test $s -eq 0; } && node --test 'tests/api/*.api.spec.ts' && tstyche",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@types/node": "24.19.2",
     "lint-staged": "17.6.0",
-    "prettier": "3.9.10"
+    "prettier": "3.9.10",
+    "tstyche": "7.2.5",
+    "typescript": "npm:@typescript/typescript6@6.0.2"
   },
   "lint-staged": {
     "*": "prettier --write --ignore-unknown"

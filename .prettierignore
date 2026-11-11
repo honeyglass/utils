@@ -6,3 +6,6 @@ pnpm-lock.yaml
 
 # built by lean-code's build:supply and pinned by sha256 in ci.yml, so no formatter may touch it
 .github/supply-check.mjs
+
+# the committed build: pnpm test compares it with a fresh tsc build, so no formatter may touch it
+dist/
