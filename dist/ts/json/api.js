@@ -1,3 +1,13 @@
+/**
+ * The one place a project parses JSON, always against a Zod schema.
+ *
+ * parseJson: the value a JSON text holds, checked by its schema, or a bug refusal that says why not.
+ *
+ * No file, no program's output and no model's answer reaches code as a type it was never checked
+ * for. Nothing of Zod is imported: the schema a caller passes does the check, typed by its shape.
+ *
+ * @example const claims = await parseJson(await readFile(path, 'utf8'), Claims)
+ */
 import { shown } from "../quote/index.js";
 import { $try } from "../try-catch/index.js";
 // Every project calls parseJson, so its bug names no program; a caller passes its own next.

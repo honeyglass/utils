@@ -1,15 +1,5 @@
-/**
- * The one place a project parses JSON, always against a Zod schema.
- *
- * parseJson: the value a JSON text holds, checked by its schema, or a bug refusal that says why not.
- *
- * No file, no program's output and no model's answer reaches code as a type it was never checked
- * for. Only Zod's types are imported: the schema a caller passes does the check.
- *
- * @example const claims = await parseJson(await readFile(path, 'utf8'), Claims)
- */
-import type { z } from 'zod';
 import type { Refusal } from '../refusal/index.ts';
+import type { Schema } from './types.ts';
 /**
  * The value a JSON text holds, checked by its schema, or a refusal that says why not.
  *
@@ -25,6 +15,6 @@ import type { Refusal } from '../refusal/index.ts';
  * if (isRefusal(claims)) return { deny: refusal({ ...claims, step: 'claims' }) }
  * @example const state = await parseJson(text, State, { next: "stop; lean-code's maintainer fixes it" })
  */
-export declare const parseJson: <S extends z.ZodType>(text: string, schema: S, options?: {
+export declare const parseJson: <Output>(text: string, schema: Schema<Output>, options?: {
     next: string;
-}) => Promise<z.output<S> | Refusal>;
+}) => Promise<Output | Refusal>;

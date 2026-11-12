@@ -25,4 +25,8 @@ describe('parseJson', () => {
   test('refuses a value that is no schema', () => {
     expect(parseJson).type.not.toBeCallableWith('{}', { safeParse: () => 1 });
   });
+
+  test('refuses a value without safeParse', () => {
+    expect(parseJson).type.not.toBeCallableWith('{}', {});
+  });
 });

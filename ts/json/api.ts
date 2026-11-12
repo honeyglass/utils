@@ -4,14 +4,14 @@
  * parseJson: the value a JSON text holds, checked by its schema, or a bug refusal that says why not.
  *
  * No file, no program's output and no model's answer reaches code as a type it was never checked
- * for. Only Zod's types are imported: the schema a caller passes does the check.
+ * for. Nothing of Zod is imported: the schema a caller passes does the check, typed by its shape.
  *
  * @example const claims = await parseJson(await readFile(path, 'utf8'), Claims)
  */
-import type { z } from 'zod';
 import { shown } from '../quote/index.ts';
 import type { Refusal } from '../refusal/index.ts';
 import { $try } from '../try-catch/index.ts';
+import type { Schema } from './types.ts';
 
 // Every project calls parseJson, so its bug names no program; a caller passes its own next.
 const BUG_NEXT = "stop and tell the person; the program's maintainer fixes it";
@@ -31,11 +31,11 @@ const BUG_NEXT = "stop and tell the person; the program's maintainer fixes it";
  * if (isRefusal(claims)) return { deny: refusal({ ...claims, step: 'claims' }) }
  * @example const state = await parseJson(text, State, { next: "stop; lean-code's maintainer fixes it" })
  */
-export const parseJson = async <S extends z.ZodType>(
+export const parseJson = async <Output>(
   text: string,
-  schema: S,
+  schema: Schema<Output>,
   options?: { next: string },
-): Promise<z.output<S> | Refusal> => {
+): Promise<Output | Refusal> => {
   // A caller in JavaScript can pass any value, and a next that is no string makes an answer that
   // isRefusal denies, read as checked data; it is read once, so a getter cannot change it.
   const own = options?.next;

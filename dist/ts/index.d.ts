@@ -1,5 +1,5 @@
 /**
- * The TypeScript utils of '@honeyglass/utils', at its subpath './ts'; they import Zod's types only.
+ * The TypeScript utils of '@honeyglass/utils', at its subpath './ts'; they import no third-party code.
  *
  * Success, Failure, Result, Fallback: the shapes `$try` and `trySync$` answer in.
  * $try: the result of a promise or a function, or the error it threw.
