@@ -22,3 +22,7 @@ blockExoticSubdeps: true
 # install. A package that came from its project's CI through trusted publishing and suddenly
 # comes from a plain token is what a stolen npm token looks like.
 trustPolicy: no-downgrade
+
+# pnpm loads no .pnpmfile.cjs, whose code would run at every install. The supply check
+# refuses a pnpm-workspace.yaml without this line.
+ignorePnpmfile: true

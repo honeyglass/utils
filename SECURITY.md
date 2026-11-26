@@ -6,6 +6,17 @@ token. These are the rules this repository follows, and each one also stands as 
 comment at the line where it acts: in a workflow, in `pnpm-workspace.yaml` or in
 `.github/dependabot.yml`.
 
+> [!IMPORTANT]
+> **Every CI run starts with the supply check of
+> [honeyglass/actions](https://github.com/honeyglass/actions/tree/main/supply-check).**
+> It runs before any dependency is installed, pinned to a full commit id like every other
+> action. It is an allow list: a dependency passes only as a registry version, an `npm:` alias,
+> a link to a folder this repository tracks, or a pinned commit of `honeyglass/utils` or
+> `honeyglass/adx`. A pnpm setting passes only as the template sets it, and a pnpmfile, a
+> `.npmrc` key or a tracked path in a `node_modules` folder never passes.
+> After the install it runs a second time and fails the job on a symlink that leads out of the
+> checkout.
+
 - **Every third party action is pinned to a full commit id, never to a tag.** A tag
   can be moved to another commit by anyone who gains write access to the action's
   repository, and every workflow that names that tag then runs their code on its next
@@ -38,10 +49,12 @@ comment at the line where it acts: in a workflow, in `pnpm-workspace.yaml` or in
   named in `package.json` come from a git repository or a tarball URL, and
   `trustPolicy: no-downgrade` fails the install when a version carries weaker proof of
   its origin than the versions before it, which is what a stolen npm token looks like.
-- **No dependency runs an install script.** pnpm blocks the lifecycle scripts of
-  dependencies, the allow list `allowBuilds` in `pnpm-workspace.yaml` stays empty, and
-  `strictDepBuilds` turns a script that would have been skipped into an install that
-  fails. The exceptions stand in this repository's README.
+- **No dependency runs an install script, and no pnpmfile loads.** pnpm blocks the
+  lifecycle scripts of dependencies, the allow list `allowBuilds` in `pnpm-workspace.yaml`
+  stays empty, and `strictDepBuilds` turns a script that would have been skipped into an
+  install that fails. `ignorePnpmfile: true` keeps pnpm from loading a `.pnpmfile.cjs`,
+  whose code would run at every install, and the supply check refuses a
+  `pnpm-workspace.yaml` without it. The exceptions stand in this repository's README.
 - **Vendored code is checked against its release.** Code taken from a release into the
   repository comes with an `UPSTREAM` file that names the release and its SHA256. A
   check hashes the code before anything runs and refuses when it differs, so a pull

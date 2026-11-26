@@ -37,27 +37,18 @@ jobs:
           # Without this the job's token is left in .git/config and every later step,
           # including anything a dependency runs, can read and use it.
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          # No 'cache: pnpm': the cache step runs pnpm to find its store, and pnpm exists
-          # only after 'corepack enable' below.
-      # Before Corepack and the install, so a local link or a pnpm setting outside the
-      # template fails the job before pnpm is fetched or any dependency is. The bundle's
-      # sha256 stands here, as GitHub shows no diff of a file that large, so a change to
-      # the bundle needs a change to this line, which a review sees.
-      - run: |
-          echo "c5dc5a23d58cf1383855b39dd2eeccf03db8df896819794a4a5cc07df3306858  .github/supply-check.mjs" | shasum -a 256 -c -
-          node .github/supply-check.mjs
-      # pnpm comes through Corepack, which ships with Node 24, not through an action.
-      # package.json names the version and the sha512 of its tarball in
-      # `packageManager`, and Corepack refuses a download whose hash differs. An
-      # action that installs pnpm reads the version and drops the hash.
-      - run: corepack enable
+      # The supply check before the install, so a local link or a pnpm setting outside the
+      # template fails the job before any dependency is fetched. It is pinned to a pushed
+      # commit of honeyglass/actions whose CI was green. The action sets up Node 24 and pnpm
+      # through Corepack, which refuses a pnpm whose sha512 differs from the one in
+      # package.json, and leaves both on for the steps below.
+      - uses: honeyglass/actions/supply-check@b11d19eaf8f4ef2d92163f8a0642c93bf06a7954
       - run: pnpm install --frozen-lockfile
       # Right after the install, before the steps below run code from node_modules: a link
       # there that dangles or leads out of the checkout fails the job.
-      - run: node .github/supply-check.mjs links
+      - uses: honeyglass/actions/supply-check@b11d19eaf8f4ef2d92163f8a0642c93bf06a7954
+        with:
+          mode: links
       - run: pnpm run format:check
       # Every repository names its scripts lint, typecheck and test, so this file stays the
       # same everywhere. --if-present skips the step in a repository without that script.
