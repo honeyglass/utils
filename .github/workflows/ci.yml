@@ -42,11 +42,11 @@ jobs:
       # commit of honeyglass/actions whose CI was green. The action sets up Node 24 and pnpm
       # through Corepack, which refuses a pnpm whose sha512 differs from the one in
       # package.json, and leaves both on for the steps below.
-      - uses: honeyglass/actions/supply-check@b11d19eaf8f4ef2d92163f8a0642c93bf06a7954
+      - uses: honeyglass/actions/supply-check@4118d0b1bf9a55f5cacb3de502f07a9523df5721
       - run: pnpm install --frozen-lockfile
       # Right after the install, before the steps below run code from node_modules: a link
       # there that dangles or leads out of the checkout fails the job.
-      - uses: honeyglass/actions/supply-check@b11d19eaf8f4ef2d92163f8a0642c93bf06a7954
+      - uses: honeyglass/actions/supply-check@4118d0b1bf9a55f5cacb3de502f07a9523df5721
         with:
           mode: links
       - run: pnpm run format:check
